@@ -10,6 +10,9 @@
 #include <netinet/in.h>
 #include <pthread.h>
 
+#define ADDR_LENGTH 40
+#define PORT_LENGTH 6
+
 int Prompting();
 void *ListenResponse();
 int Cliconnect();
@@ -50,7 +53,7 @@ int Clisendserver(int network_socket)
 	printf("Please input the message you want to send:\n");
 	scanf("%s", msg);
 	//itoa(no, msgno, 10);
-	sprintf(msgno, "%d", no);
+	sprintf(msgno, "send:%d,", no);
 	strcat(msgno, msg); 
 	rv = send(network_socket,msgno, sizeof(msgno), 0); 
 	if (rv == -1)
@@ -98,9 +101,7 @@ int Cliclose(int network_socket, pthread_t tid)
 
 int Cliconnect(pthread_t *tid)
 {
-	char * ip_addr, * ip_port;
-	ip_addr = (char *)malloc(100); // ?
-	ip_port = (char *)malloc(100); // ?
+	char ip_addr[ADDR_LENGTH], ip_port[PORT_LENGTH];
 	printf("Please enter ip:\n");
 	scanf("%s", ip_addr);
 	printf("Please enter port:\n");
