@@ -13,7 +13,7 @@
 #define ADDR_LENGTH 40
 #define PORT_LENGTH 6
 
-int Prompting();
+int Prompting(int);
 void *ListenResponse();
 int Cliconnect();
 int Cliconnect_withip(char *ip_addr, char *ip_port, pthread_t *tid);
@@ -51,7 +51,7 @@ int Clisendserver(int network_socket)
 	printf("Please input the number of the client:\n");
 	scanf("%d", &no);
 	printf("Please input the message you want to send:\n");
-	scanf("%s", msg);
+	scanf("%s", msg);	
 	//itoa(no, msgno, 10);
 	sprintf(msgno, "send:%d,", no);
 	strcat(msgno, msg); 
@@ -94,6 +94,8 @@ int Cligettime(int network_socket)
 
 int Cliclose(int network_socket, pthread_t tid)
 {
+	int rv;
+	rv = send(network_socket, "quit", sizeof("quit"),0);
 	close(network_socket);
 	return 0;
 }
@@ -121,17 +123,18 @@ void *ListenResponse(void * arg)
 		int recv_ret = recv(network_socket,&server_response,sizeof(server_response), 0);
 		if (recv_ret > 0)
 		{
+			printf("[Data received] ");
 			printf("%s\n", server_response);
 			memset(server_response, 0, sizeof(server_response));
 		} 
 		else if (recv_ret < 0)
 		{
-			perror("Invalid socket");
+			perror("Invalid socket\n");
 			pthread_exit(NULL);
 		}
 		else if (recv_ret == 0)
 		{
-			printf("Socket closed");
+			printf("Socket closed, exiting current thread\n");
 			pthread_exit(NULL);
 		}
 	}
@@ -148,8 +151,6 @@ int Cliconnect_withip(char *ip_addr, char *ip_port, pthread_t *tid)
 	struct hostent *server;
 	struct sockaddr_in serv_addr;
 	
-	// Don't care about child process, preventing zombie process.
-	printf("%s", ip_addr);
 	network_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (network_socket < 0)
 	{
@@ -189,7 +190,7 @@ int Cliconnect_withip(char *ip_addr, char *ip_port, pthread_t *tid)
 	}
 	else // parent process
 	{
-		printf("Connection established");	
+		printf("Connection established\n");	
 		return network_socket;
 	}
 	return network_socket;
@@ -197,19 +198,21 @@ int Cliconnect_withip(char *ip_addr, char *ip_port, pthread_t *tid)
 	
 
 
-int Prompting()
+int Prompting(int inst)
 {
 	int command;
 	printf("Welcome to network experiment2!\n");
 	printf("1. Connect to specific IP and port.\n");
+	if(inst != 0) {
 	printf("2. Disconnect.\n");
 	printf("3. Get the time.\n");
 	printf("4. Get the name.\n");
 	printf("5. Get the server list.\n");
-	printf("6. Send the message.\n");
+	printf("6. Send the message.\n");}
 	printf("7. Exit.\n");
+	if (inst != 1) {
 	printf("Please enter the command:\n");
-	scanf("%d", &command);
+	scanf("%d", &command); }
 	while (command < 1 || command > 7)
 	{
 		printf("Wrong instruction, please try again");
@@ -220,15 +223,6 @@ int Prompting()
 
 int main()
 {
-	// create a socket
-//	network_socket = socket(AF_INET, SOCK_STREAM, 0);
-	
-	// specify an address for the socket
-//	struct sockaddr_in server_address;
-//	server_address.sin_family = AF_INET;
-//	server_address.sin_port = htons(1224);
-//	server_address.sin_addr.s_addr = INADDR_ANY;
-
 	// Main loop of listing menu.
 	int command;
 	int socket = -1;
@@ -237,12 +231,12 @@ int main()
 	while(1)
 	{
 		if (socket == -1)
-			command = Prompting();	
+			command = Prompting(0);	
 		else
 			scanf("%d", &command);
 		switch( command)
 		{
-			case 1:	socket = Cliconnect(&tid); break;	
+			case 1:	socket = Cliconnect(&tid); Prompting(1); break;	
 			case 2: if (socket != -1)
 						Cliclose(socket, tid);
 					printf("Connection has been closed\n");
