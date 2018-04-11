@@ -1,4 +1,5 @@
 #include <netdb.h>
+#include <arpa/inet.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,7 +28,7 @@ int Cligetserver(int network_socket)
 		return 1;
 	}
 	int rv;
-	rv = send(network_socket, "getserver", sizeof("getserver"), 0);
+	rv = send(network_socket, "list", sizeof("list"), 0);
 	if (rv == -1)
 		return 1;
 	else
@@ -66,7 +67,7 @@ int Cligetname(int network_socket)
 		return 1;
 	}
 	int rv;
-	rv = send(network_socket, "getname", sizeof("getname"), 0);
+	rv = send(network_socket, "name", sizeof("name"), 0);
 	if (rv == -1)
 		return 1;
 	else
@@ -81,7 +82,7 @@ int Cligettime(int network_socket)
 		return 1;
 	}
 	int rv;
-	rv = send(network_socket, "gettime", sizeof("gettime"), 0);
+	rv = send(network_socket, "time", sizeof("time"), 0);
 	if (rv == -1)
 		return 1;
 	else
@@ -91,7 +92,6 @@ int Cligettime(int network_socket)
 int Cliclose(int network_socket, pthread_t tid)
 {
 	close(network_socket);
-	pthread_join(tid, NULL);
 	return 0;
 }
 
@@ -126,15 +126,15 @@ void *ListenResponse(void * arg)
 		else if (recv_ret < 0)
 		{
 			perror("Invalid socket");
-			return;
+			pthread_exit(NULL);
 		}
 		else if (recv_ret == 0)
 		{
 			printf("Socket closed");
-			return;
+			pthread_exit(NULL);
 		}
 	}
-	return;
+	pthread_exit(NULL);
 }
 int Cliconnect_withip(char *ip_addr, char *ip_port, pthread_t *tid)
 {
@@ -229,19 +229,22 @@ int main()
 //	server_address.sin_addr.s_addr = INADDR_ANY;
 
 	// Main loop of listing menu.
+	int command;
 	int socket = -1;
 	pthread_t tid;
 	int rv;
 	while(1)
 	{
-		int command = Prompting();	
+		if (socket == -1)
+			command = Prompting();	
+		else
+			scanf("%d", &command);
 		switch( command)
 		{
 			case 1:	socket = Cliconnect(&tid); break;	
 			case 2: if (socket != -1)
 						Cliclose(socket, tid);
-					else
-						printf("Connection is closed\n");
+					printf("Connection has been closed\n");
 					socket = -1;
 					break;
 			case 3: rv = Cligettime(socket);
@@ -271,7 +274,6 @@ int main()
 					break;
 			default: break;
 		}
-		
 	}	
 //	int connection_status = connect(network_socket, (struct sockaddr *) &server_address, sizeof(server_address));
 	// check for error with the connection
