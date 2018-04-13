@@ -48,9 +48,11 @@ void communicate(void* newfd_ptr){
 
     int i;
     int j;
+    int curID;
     int toID;
     char toMessage[BUFFER_LENGTH];
 
+    curID = id - 1;
     allfd[id] = newfd;
     // say hello to client
     if( send(newfd, hello, strlen(hello), 0) > 0){
@@ -179,7 +181,9 @@ void communicate(void* newfd_ptr){
                                 break;
                             }
                         }
-                        if( send(allfd[toID], toMessage, strlen(toMessage), 0) > 0){
+                        bzero(data_send, BUFFER_LENGTH);        // initialize
+                        sprintf(data_send, "id: %d, addr: %s, port: %d send you a message:\n%s\n", curID+1, alladdr[curID], allport[curID], toMessage);
+                        if( send(allfd[toID], data_send, strlen(data_send), 0) > 0){
                             printf("data send success!\n");
                         }
                         else{
