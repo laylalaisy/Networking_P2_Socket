@@ -16,18 +16,21 @@
 #include <arpa/inet.h>      // func: inet_ntoa;
 #include <unistd.h>         // func: close;
 
-#define SOCK_PORT 5330
+#define SOCK_PORT 5330      // port number
 #define MAX_CONN_LIMIT 512  // max connection limit
-#define BUFFER_LENGTH 1024
-#define ADDR_LENGTH 40
+#define BUFFER_LENGTH 1024  // buffer length
+#define ADDR_LENGTH 40      // address length
 
 pthread_t thread_id[MAX_CONN_LIMIT];    // array of pthread
-int allfd[MAX_CONN_LIMIT];
+int allfd[MAX_CONN_LIMIT];              // array of fd
 char* alladdr[MAX_CONN_LIMIT];          // array of address
 int allport[MAX_CONN_LIMIT];            // array of port
-int isConnect[MAX_CONN_LIMIT];
-int id = 0;
+int isConnect[MAX_CONN_LIMIT];          // array of flag 
+int id = 0;                             // id of pthread
 
+/* 
+    communicate function
+*/
 void communicate(void* newfd_ptr){
     int newfd = *((int*)newfd_ptr);
     int maxfd;
@@ -36,9 +39,9 @@ void communicate(void* newfd_ptr){
     int retval;
     char data_send[BUFFER_LENGTH];  // data send
     char data_recv[BUFFER_LENGTH];  // data receive
-    char data_temp[BUFFER_LENGTH];
-    int sendlen, recvlen;
-    const char* hello = "hello from server!\n please input:\n time: to get local time;\n name: to get hostname;\n list: to list all clients' information;\n send:(id),(message): to communicat with others;\n";
+    char data_temp[BUFFER_LENGTH];  // data temp
+    int sendlen, recvlen;           // length of send and recieve 
+    const char* hello = "hello from server!\n";
 
     int totalsec = 0;
     int hour = 0, min = 0, sec = 0;
@@ -52,8 +55,10 @@ void communicate(void* newfd_ptr){
     int toID;
     char toMessage[BUFFER_LENGTH];
 
+    // set current ID
     curID = id - 1;
     allfd[id] = newfd;
+
     // say hello to client
     if( send(newfd, hello, strlen(hello), 0) > 0){
         printf("data send success!\n");
@@ -63,6 +68,7 @@ void communicate(void* newfd_ptr){
         exit(errno);
     }
 
+    // operations
     while(1){
         // set rfds
         FD_ZERO(&rfds);         // initialize rfds
@@ -112,6 +118,7 @@ void communicate(void* newfd_ptr){
                 recvlen = recv(newfd, data_recv, BUFFER_LENGTH, 0);
                 if( recvlen > 0){
                     printf("data receive: %s", data_recv);
+
                     // time()
                     if(!strncmp(data_recv, "time", 4)){
                         totalsec = (int)time(0);
@@ -128,7 +135,10 @@ void communicate(void* newfd_ptr){
                             exit(errno);
                         }
                     }
+
+                    // name()
                     else if(!strncmp(data_recv, "name", 4)){
+                        // get host name
                         gethostname(hostname, sizeof(hostname));
                         sprintf(hostname, "%s\n", hostname);
                         // send time to client
@@ -140,9 +150,13 @@ void communicate(void* newfd_ptr){
                             exit(errno);
                         }
                     }
+
+                    // list()
                     if(!strncmp(data_recv, "list", 4)){
+                        // traverse the client list
                         for(i = 0; i < id; i++){
                             bzero(data_send, BUFFER_LENGTH);        // initialize
+                            // test if is still connected
                             if(isConnect[i] == 1){
                                 sprintf(data_send, "id: %d, addr: %s, port: %d\n", i+1, alladdr[i], allport[i]);
                                 if( send(newfd, data_send, strlen(data_send), 0) > 0){
@@ -155,11 +169,12 @@ void communicate(void* newfd_ptr){
                             }
                         }
                     }
+
                     // client want to send: "send:58,message"
                     if(!strncmp(data_recv, "send", 4)){
-                        // id of the receiver client
+                        // get id of the receiver client
                         j = 0;
-                        bzero(data_temp, BUFFER_LENGTH);        // initialize
+                        bzero(data_temp, BUFFER_LENGTH);        
                         for(i = 5; i < BUFFER_LENGTH; i++){
                             if(data_recv[i] != ','){
                                 data_temp[j] = data_recv[i];
@@ -170,6 +185,7 @@ void communicate(void* newfd_ptr){
                             }
                         }
                         toID = atoi(data_temp);
+                        // get message client want to send
                         j = 0;
                         bzero(toMessage, BUFFER_LENGTH);
                         for(i++; i < BUFFER_LENGTH; i++){
@@ -181,6 +197,7 @@ void communicate(void* newfd_ptr){
                                 break;
                             }
                         }
+                        // information to send: client's information + message 
                         bzero(data_send, BUFFER_LENGTH);        // initialize
                         sprintf(data_send, "id: %d, addr: %s, port: %d send you a message:\n%s\n", curID+1, alladdr[curID], allport[curID], toMessage);
                         if( send(allfd[toID], data_send, strlen(data_send), 0) > 0){
@@ -192,12 +209,6 @@ void communicate(void* newfd_ptr){
                         }
                     }
                 }
-                /*else if(recvlen == 0){
-                    perror("data receive: Client has quit and stopped chatting!\n");
-                }
-                else{
-                    perror("data receive: Client has NOT sent message successfully!\n");
-                }*/
             }
 
         }
@@ -205,22 +216,25 @@ void communicate(void* newfd_ptr){
 
     // clear current pthread
     printf("terminating current client connection...\n");
-    isConnect[id] = 0;
-    close(newfd);
-    pthread_exit(NULL);
+    isConnect[id] = 0;  // reset client's status as unconnected
+    close(newfd);       // clost fd
+    pthread_exit(NULL); // exit current pthread
 }
 
+/*
+    main function
+*/
 int main(int argc, char **argv) {
-    int sockfd;
-    int newfd;
-    struct sockaddr_in s_addr;
-    struct sockaddr_in c_addr;
+    int sockfd;                     // sockfd
+    int newfd;                      // current fd
+    struct sockaddr_in s_addr;      // address of server
+    struct sockaddr_in c_addr;      // address of client
     int length;
 
-    bzero(isConnect, MAX_CONN_LIMIT);
+    bzero(isConnect, MAX_CONN_LIMIT);           // flag: if current client is still connect
 
     // create sockfd
-    sockfd = socket(AF_INET, SOCK_STREAM, 0); // ipv4, TCP
+    sockfd = socket(AF_INET, SOCK_STREAM, 0);   // ipv4, TCP
     if(sockfd == -1){
         perror("socket");
         exit(errno);
@@ -232,7 +246,7 @@ int main(int argc, char **argv) {
     // set the attr of structure socket address
     memset(&s_addr, 0, sizeof(s_addr));
     s_addr.sin_family = AF_INET;
-    s_addr.sin_addr.s_addr = htonl(INADDR_ANY);     //trans addr from uint32_t host byte order to network byte order.
+    s_addr.sin_addr.s_addr = htonl(INADDR_ANY);  //trans addr from uint32_t host byte order to network byte order.
     s_addr.sin_port = htons(SOCK_PORT);          //trans port from uint16_t host byte order to network byte order.
 
     // bind ip address and port
@@ -263,14 +277,16 @@ int main(int argc, char **argv) {
             continue;
         }
         else{
+            // connect 
             printf("A new connection occurs!\n");
             printf("The client is: %s: %d \n", inet_ntoa(c_addr.sin_addr), ntohs(c_addr.sin_port));
             // store address and port
-            alladdr[id] = (char*)malloc(sizeof(char) * ADDR_LENGTH);
+            alladdr[id] = (char*)malloc(sizeof(char) * ADDR_LENGTH);    
             strcpy(alladdr[id], inet_ntoa(c_addr.sin_addr));
             allport[id] = ntohs(c_addr.sin_port);
+            // set flag and status as connected
             isConnect[id] = 1;
-            // new thread
+            // create new thread
             if(pthread_create(&thread_id[id], NULL, (void *)(&communicate),(void *)(&newfd)) == -1){
                 id--;
                 perror("thread create error!\n");
@@ -287,6 +303,7 @@ int main(int argc, char **argv) {
     else{
         printf("server shuts down!\n");
     }
+
     return 0;
 }
 
